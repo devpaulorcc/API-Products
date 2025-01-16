@@ -4,137 +4,142 @@
 $db = DB::connect();
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-// defines what i need to replace
-$remov = array("'", "\\", "-", "(", ")");
+// Helper function for responses
+function sendResponse($status, $message, $data = null) {
+    http_response_code($status);
+    echo json_encode(['message' => $message, 'data' => $data]);
+    exit;
+}
 
-// set my variables to use on my queries
-!empty($_GET['user_id'])  ? intval(preg_match('/\d+/', $_GET['user_id'], $id_user))                      : $id_user='';
-!empty($_GET['name'])     ? $name=preg_replace("/[^\w\s]/u", "", $_GET['name'])                          : $name='';
-!empty($_GET['email'])    ? $email=mb_strtolower(trim(str_replace($remov, "", $_GET['email'])), 'UTF-8') : $email='';
-!empty($_GET['password']) ? $password=base64_encode(str_replace($remov, "", $_GET['password']))          : $password='';
-!empty($_GET['avatar'])   ? $avatar=$_GET['avatar']                                                      : $avatar='';
+// Validation of inputs
+$remov = array("'", "\\", "-", "(", ")");
+$id_user = !empty($_GET['user_id']) ? intval($_GET['user_id']) : '';
+$name = !empty($_GET['name']) ? preg_replace("/[^\w\s]/u", "", $_GET['name']) : '';
+$email = !empty($_GET['email']) ? mb_strtolower(trim(str_replace($remov, "", $_GET['email'])), 'UTF-8') : '';
+$password = !empty($_GET['password']) ? $_GET['password'] : '';
+$avatar = !empty($_GET['avatar']) ? $_GET['avatar'] : '';
+
+// Validation of email format
+if ($email && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    sendResponse(400, 'Invalid email address');
+}
+
+// Method and action validation
+$validMethods = ['GET', 'POST', 'PUT', 'DELETE'];
+$validActions = ['login', 'register', 'edit', 'list', 'delete'];
+
+if (!in_array($method, $validMethods) || !in_array($action, $validActions)) {
+    sendResponse(404, 'Invalid method or action');
+}
 
 if ($method == 'POST' && $action == 'login') {
 
-    $query = $db->prepare("SELECT * FROM users WHERE email = '$email' AND password = '$password'");
-    $query->execute();
-    $result = $query->fetchAll(PDO::FETCH_ASSOC);
+    $query = $db->prepare("SELECT * FROM users WHERE email = :email");
+    $query->execute(['email' => $email]);
+    $result = $query->fetch(PDO::FETCH_ASSOC);
 
-    if (!$result) {
-        http_response_code(401);
-        echo json_encode(['message' => 'Email or password incorrect!']);
-        exit;
+    if (!$result || !password_verify($password, $result['password'])) {
+        sendResponse(401, 'Email or password incorrect');
     }
 
-    http_response_code(200);
-    echo json_encode(['message' => 'successfully logged in', 'data' => $result]);
-    exit;
+    sendResponse(200, 'Successfully logged in', $result);
 
 } else if ($method == 'POST' && $action == 'register') {
 
-    if ($name[0] == '' || $email == '' || $password == '') {
-        http_response_code(403);
-        echo json_encode(['message' => 'Provide all credentials']);
-        exit;
+    if ($name === '' || $email === '' || $password === '') {
+        sendResponse(403, 'Provide all credentials');
     }
 
-    $query = $db->prepare("SELECT id FROM users WHERE email = '$email'");
-    $query->execute();
-    $resultVerify = $query->fetchAll(PDO::FETCH_ASSOC);
+    $query = $db->prepare("SELECT id FROM users WHERE email = :email");
+    $query->execute(['email' => $email]);
+    $resultVerify = $query->fetch(PDO::FETCH_ASSOC);
 
     if ($resultVerify) {
-        http_response_code(401);
-        echo json_encode(['message' => 'User already exists']);
-        exit;
+        sendResponse(401, 'User already exists');
     }
 
-    $query = $db->prepare("INSERT INTO users (name, email, password) VALUES ('$name', '$email', '$password')");
-    $result = $query->execute();
+    $passwordHash = password_hash($password, PASSWORD_BCRYPT);
+    $query = $db->prepare("INSERT INTO users (name, email, password) VALUES (:name, :email, :password)");
+    $result = $query->execute(['name' => $name, 'email' => $email, 'password' => $passwordHash]);
 
-    http_response_code(200);
-    echo json_encode(['message' => 'User was created!']);
-    exit;
+    sendResponse(201, 'User was created!');
 
 } else if ($method == 'PUT' && $action == 'edit') {
 
-    if (empty($id_user[0])) {
-        http_response_code(401);
-        echo json_encode(['message' => 'User id is required']);
-        exit;
+    if (!$id_user) {
+        sendResponse(401, 'User ID is required');
     }
-    
-    $setters = '';
 
-    if ($name)  $setters .= ",name = '$name'";  
-    if ($email)    $setters .= ",email = '$email'"; 
-    if ($password) $setters .= ",password = '$password'";
-    if ($avatar)   $setters .= ",avatar = '$avatar'";
+    $setters = [];
+    $params = ['id' => $id_user];
+    if ($name) {
+        $setters[] = "name = :name";
+        $params['name'] = $name;
+    }
+    if ($email) {
+        $setters[] = "email = :email";
+        $params['email'] = $email;
+    }
+    if ($password) {
+        $setters[] = "password = :password";
+        $params['password'] = password_hash($password, PASSWORD_BCRYPT);
+    }
+    if ($avatar) {
+        $setters[] = "avatar = :avatar";
+        $params['avatar'] = $avatar;
+    }
 
-    $setters = ltrim($setters, ',');
+    $settersString = implode(", ", $setters);
 
     try {
-        $query = $db->prepare("UPDATE users SET $setters WHERE ID = $id_user[0]");
-        $result = $query->execute();
-    } catch(Exception $e) {
-        http_response_code(403);
-        echo json_encode(['message' => "$e"]);
-        exit;
+        $query = $db->prepare("UPDATE users SET $settersString WHERE id = :id");
+        $query->execute($params);
+    } catch (Exception $e) {
+        sendResponse(500, 'Internal server error: ' . $e->getMessage());
     }
-    
-    http_response_code(200);
-    echo json_encode(['message' => 'User was modified!']);
-    exit;
+
+    sendResponse(200, 'User was modified!');
 
 } else if ($method == 'GET' && $action == 'list') {
 
-    $stringQuery = "SELECT * FROM users";
+    $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+    $limit = 10;
+    $offset = ($page - 1) * $limit;
 
-    if (!empty($id_user[0])) $stringQuery = "SELECT * FROM users WHERE ID = $id_user[0]";
-
-    $query = $db->prepare($stringQuery);
+    $query = $db->prepare("SELECT * FROM users LIMIT :limit OFFSET :offset");
+    $query->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $query->bindValue(':offset', $offset, PDO::PARAM_INT);
     $query->execute();
     $result = $query->fetchAll(PDO::FETCH_ASSOC);
 
     if (!$result) {
-        http_response_code(201);
-        echo json_encode(['message' => 'No users found']);
-        exit;
+        sendResponse(404, 'No users found');
     }
 
-    http_response_code(200);
-    echo json_encode(['message' => 'Sucessfully', 'data' => $result]);
-    exit;
+    sendResponse(200, 'Successfully retrieved users', $result);
 
 } else if ($method == 'DELETE' && $action == 'delete') {
 
-    $query = $db->prepare("SELECT level FROM users WHERE email = '$email' AND password = '$password'");
-    $query->execute();
-    $resultVerify = $query->fetchAll(PDO::FETCH_ASSOC);
+    $query = $db->prepare("SELECT * FROM users WHERE email = :email");
+    $query->execute(['email' => $email]);
+    $resultVerify = $query->fetch(PDO::FETCH_ASSOC);
 
-    if (!$resultVerify) {
-        http_response_code(401);
-        echo json_encode(['message' => 'User not exists']);
-        exit;
+    if (!$resultVerify || !password_verify($password, $resultVerify['password'])) {
+        sendResponse(401, 'User does not exist or invalid credentials');
     }
 
-    if ($resultVerify[0]['level'] && !empty($id_user[0])) {
-    	$query = $db->prepare("DELETE FROM users WHERE ID = $id_user[0]");
-    	$result = $query->execute();
+    if ($resultVerify['level'] && $id_user) {
+        $query = $db->prepare("DELETE FROM users WHERE id = :id");
+        $query->execute(['id' => $id_user]);
 
-    	http_response_code(200);
-    	echo json_encode(['message' => 'Account was deleted']);
-    	exit;
+        sendResponse(200, 'Account was deleted');
+    } else {
+        $query = $db->prepare("DELETE FROM users WHERE email = :email");
+        $query->execute(['email' => $email]);
+
+        sendResponse(200, 'Account was deleted');
     }
-
-    $query = $db->prepare("DELETE FROM users WHERE email = '$email' AND password = '$password'");
-    $result = $query->execute();
-
-    http_response_code(200);
-    echo json_encode(['message' => 'Account was deleted']);
-    exit;
 
 } else {
-    http_response_code(404);
-    echo json_encode(['message' => 'Not found']);
-    exit;
+    sendResponse(404, 'Not found');
 }
