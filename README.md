@@ -1,50 +1,59 @@
 # API Products
 
-> I do this API to learn about PHP
-> and improviment myself
+[![English](https://img.shields.io/badge/lang-English-blue)](README.md)
+[![Português](https://img.shields.io/badge/lang-Português-green)](README.pt-BR.md)
 
-In this API we have some functionalities
+> This API was created to learn about PHP and improve my skills.
 
-| method   | end point          | required params                        |
-| -------- | ------------------ | -------------------------------------- |
-| `POST`   | /users/register    | `name, email, password`                |
-| `POST`   | /users/login       | `email, user`                          |
-| `POST`   | /products/register | `user_id, name, amount, metric, value` |
-| `PUT`    | /users/edit        | `user_id`                              |
-| `PUT`    | /products/edit     | `user_id, prod_id`                     |
-| `GET`    | /products/list     | `user_id`                              |
-| `GET`    | /products/total    | `user_id`                              |
-| `DELETE` | /products/detete   | `prod_id, user_id`                     |
-| `DELETE` | /usuario/detete    | `user_id`                              |
+The **API Products** is a system designed as a shopping list, helping users to organize their cart. With features to manage users and products, it’s ideal for practicing RESTful API development with PHP.
 
-url_base: https://apiprodutosphp.dev.br
+---
 
-It is necessary to be logged in before consuming the other endpoints,
-because the system will bring the products based on the logged in user.
+## Endpoints
 
-This project will serve as a shopping list,
-helping to organize your shopping cart.
+### **User Endpoints**
 
-## /products
+| Method   | Endpoint         | Required Parameters          | Description                |
+| -------- | ---------------- | ---------------------------- | -------------------------- |
+| `POST`   | `/users/register`| `name, email, password`      | Register a new user        |
+| `POST`   | `/users/login`   | `email, password`            | Log in a user              |
+| `PUT`    | `/users/edit`    | `user_id`                   | Edit user information      |
+| `GET`    | `/users/list`    | `user_id`                   | Retrieve user information  |
+| `DELETE` | `/users/delete`  | `email, password`           | Delete a user account      |
 
-(POST) `/products/register?user_id=&name=&amount=&metric=&value`
+---
 
-(PUT) `/products/edit?user_id=&prod_id=&name=&amount=&metric=&value`
+### **Product Endpoints**
 
-(GET) `/products/list?user_id=&name=`
+| Method   | Endpoint            | Required Parameters                   | Description                       |
+| -------- | ------------------- | ------------------------------------- | --------------------------------- |
+| `POST`   | `/products/register`| `user_id, name, amount, metric, value`| Register a new product            |
+| `PUT`    | `/products/edit`    | `user_id, prod_id`                   | Edit a product                    |
+| `GET`    | `/products/list`    | `user_id`                            | Retrieve products for a user      |
+| `GET`    | `/products/total`   | `user_id`                            | Calculate total value of products |
+| `DELETE` | `/products/delete`  | `user_id, prod_id`                   | Delete a product                  |
 
-(GET) `/products/total?user_id`
+---
 
-(DELETE) `/products/delete?user_id=&prod_id`
+## Base URL
 
-## /users
+The API is hosted at:  
+`https://apiprodutosphp.dev.br`
 
-(POST) `/users/login?email=&password`
+---
 
-(POST) `/users/register?name=&email=&password`
+## Authentication
 
-(PUT) `/users/edit?name=&email=&password=&avatar`
+It is necessary to log in before consuming other endpoints. The system links all actions to the logged-in user and their products.
 
-(GET) `/users/list?user_id`
+---
 
-(DELETE) `/users/delete?email=&password`
+## Objective
+
+This project serves as a **shopping list** application to:
+- Help users manage their shopping carts.
+- Provide an example of a RESTful API built with PHP.
+
+---
+
+[🔄 Translate this README to Portuguese](https://translate.google.com/translate?sl=en&tl=pt&u=https://github.com/devpaulorcc/API-Products)
